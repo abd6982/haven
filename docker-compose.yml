@@ -38,3 +38,24 @@ services:
       - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
       - traefik.http.routers.traefik.service=api@internal
     restart: unless-stopped
+
+    jellyfin:
+      image: jellyfin/jellyfin
+      container_name: jellyfin
+      volumes:
+        - /home/abhishek/data/config:/config
+        - /home/abhishek/data/cache:/cache
+        - /home/abhishek/data/media:/media
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.traefik.entrypoints=https
+        - traefik.http.routers.traefik.rule=Host(`haven.myddns.me`) && PathPrefix(`/jellyfin`)
+        - traefik.http.routers.traefik.tls=true
+        - traefik.http.routers.traefik.tls.certresolver=letsencrypt
+        - traefik.http.routers.traefik.middlewares=traefik-strip
+        - traefik.http.middlewares.traefik-strip.stripprefix.prefixes=/jellyfin
+        - traefik.http.routers.http-catchall.entrypoints=http
+        - traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)
+        - traefik.http.routers.http-catchall.middlewares=redirect-to-https
+        - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      restart: unless-stopped
