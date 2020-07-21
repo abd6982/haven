@@ -14,24 +14,28 @@ services:
       - --api.dashboard=true
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
-      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=gcloud
+      - --certificatesresolvers.myresolver.acme.dnschallenge.delaybeforecheck=0
       - --certificatesresolvers.letsencrypt.acme.email=abd6982@gmail.com
-      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme/acme.json
     ports:
       - 80:80
       - 443:443
     volumes:
-      - ./letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik:/etc/traefik
+    environment:
+      - GCE_PROJECT=cumulo
+      - GCE_SERVICE_ACCOUNT_FILE=/etc/traefik/gce_service_account.json
     labels:
       - traefik.enable=true
       - traefik.http.routers.traefik.entrypoints=https
-      - traefik.http.routers.traefik.rule=Host(`haven.myddns.me`) && (PathPrefix(`/traefik`) || PathPrefix(`/api`))
+      - traefik.http.routers.traefik.rule=Host(`traefik.haven.cumulo.dev`)
       - traefik.http.routers.traefik.tls=true
       - traefik.http.routers.traefik.tls.certresolver=letsencrypt
-      - traefik.http.routers.traefik.middlewares=basic-auth,traefik-strip
+      - traefik.http.routers.traefik.middlewares=basic-auth
       - traefik.http.middlewares.basic-auth.basicauth.users=abhishek:$$2y$$10$$op5eqXNINSeXfpDh1ghnSuqjdNXEn9MGvCkRsKZdNjZPbB4MfkZlO
-      - traefik.http.middlewares.traefik-strip.stripprefix.prefixes=/traefik
       - traefik.http.routers.http-catchall.entrypoints=http
       - traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)
       - traefik.http.routers.http-catchall.middlewares=redirect-to-https
@@ -43,19 +47,17 @@ services:
     image: jellyfin/jellyfin
     container_name: jellyfin
     volumes:
-      - /home/abhishek/data/config:/config
-      - /home/abhishek/data/cache:/cache
-      - /home/abhishek/data/media:/media
+      - ./jellyfin/config:/config
+      - ./jellyfin/cache:/cache
+      - ./jellyfin/media:/media
     labels:
       - traefik.enable=true
-      - traefik.http.routers.traefik.entrypoints=https
-      - traefik.http.routers.traefik.rule=Host(`haven.myddns.me`) && PathPrefix(`/jellyfin`)
-      - traefik.http.routers.traefik.tls=true
-      - traefik.http.routers.traefik.tls.certresolver=letsencrypt
-      - traefik.http.routers.traefik.middlewares=traefik-strip
-      - traefik.http.middlewares.traefik-strip.stripprefix.prefixes=/jellyfin
-      - traefik.http.routers.http-catchall.entrypoints=http
-      - traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)
-      - traefik.http.routers.http-catchall.middlewares=redirect-to-https
+      - traefik.http.routers.jellyfin.entrypoints=https
+      - traefik.http.routers.jellyfin.rule=Host(`jellyfin.haven.cumulo.dev`)
+      - traefik.http.routers.jellyfin.tls=true
+      - traefik.http.routers.jellyfin.tls.certresolver=letsencrypt
+      - traefik.http.routers.jellyfin-http-catchall.entrypoints=http
+      - traefik.http.routers.jellyfin-http-catchall.rule=HostRegexp(`{host:.+}`)
+      - traefik.http.routers.jellyfin-http-catchall.middlewares=redirect-to-https
       - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
     restart: unless-stopped
