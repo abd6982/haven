@@ -1,0 +1,40 @@
+version: '3'
+
+services:
+
+  traefik:
+    image: traefik:v2.2
+    container_name: traefik
+    command:
+      - --global.checkNewVersion=true
+      - --global.sendAnonymousUsage=true
+      - --entryPoints.http.address=:80
+      - --entryPoints.https.address=:443
+      - --api=true
+      - --api.dashboard=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.email=abd6982@gmail.com
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik.entrypoints=https
+      - traefik.http.routers.traefik.rule=Host(`haven.myddns.me`) && (PathPrefix(`/traefik`) || PathPrefix(`/api`))
+      - traefik.http.routers.traefik.tls=true
+      - traefik.http.routers.traefik.tls.certresolver=letsencrypt
+      - traefik.http.routers.traefik.middlewares=basic-auth,traefik-strip
+      - traefik.http.middlewares.basic-auth.basicauth.users=abhishek:$$2y$$10$$op5eqXNINSeXfpDh1ghnSuqjdNXEn9MGvCkRsKZdNjZPbB4MfkZlO
+      - traefik.http.middlewares.traefik-strip.stripprefix.prefixes=/traefik
+      - traefik.http.routers.http-catchall.entrypoints=http
+      - traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)
+      - traefik.http.routers.http-catchall.middlewares=redirect-to-https
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.routers.traefik.service=api@internal
+    restart: unless-stopped
