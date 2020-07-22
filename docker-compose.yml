@@ -146,3 +146,43 @@ services:
       - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
       - traefik.http.services.heimdall.loadbalancer.server.port=80
     restart: unless-stopped
+
+  simple-torrent:
+    image: boypt/cloud-torrent
+    container_name: simpletorrent
+    environment:
+      - AUTH=abhishek:password
+    volumes:
+      - ./simpletorrent/downloads:/downloads
+      - ./simpletorrent/torrents:/torrents
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.simpletorrent.entrypoints=https
+      - traefik.http.routers.simpletorrent.rule=Host(`simpletorrent.haven.cumulo.dev`)
+      - traefik.http.routers.simpletorrent.tls=true
+      - traefik.http.routers.simpletorrent.tls.certresolver=letsencrypt
+      - traefik.http.routers.simpletorrent-http-catchall.entrypoints=http
+      - traefik.http.routers.simpletorrent-http-catchall.rule=HostRegexp(`{host:.+}`)
+      - traefik.http.routers.simpletorrent-http-catchall.middlewares=redirect-to-https
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.services.simpletorrent.loadbalancer.server.port=3000
+    restart: unless-stopped
+
+  filebrowser:
+    image: filebrowser/filebrowser
+    container_name: filebrowser
+    volumes:
+      - ./:/srv
+      - ./filebrowser/database.db:/database.db
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.filebrowser.entrypoints=https
+      - traefik.http.routers.filebrowser.rule=Host(`filebrowser.haven.cumulo.dev`)
+      - traefik.http.routers.filebrowser.tls=true
+      - traefik.http.routers.filebrowser.tls.certresolver=letsencrypt
+      - traefik.http.routers.filebrowser-http-catchall.entrypoints=http
+      - traefik.http.routers.filebrowser-http-catchall.rule=HostRegexp(`{host:.+}`)
+      - traefik.http.routers.filebrowser-http-catchall.middlewares=redirect-to-https
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.services.filebrowser.loadbalancer.server.port=80
+    restart: unless-stopped
