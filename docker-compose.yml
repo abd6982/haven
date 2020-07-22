@@ -16,7 +16,7 @@ services:
       - --providers.docker.exposedbydefault=false
       - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
       - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=gcloud
-      - --certificatesresolvers.myresolver.acme.dnschallenge.delaybeforecheck=0
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.delaybeforecheck=0
       - --certificatesresolvers.letsencrypt.acme.email=abd6982@gmail.com
       - --certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme/acme.json
     ports:
@@ -36,9 +36,9 @@ services:
       - traefik.http.routers.traefik.tls.certresolver=letsencrypt
       - traefik.http.routers.traefik.middlewares=basic-auth
       - traefik.http.middlewares.basic-auth.basicauth.users=abhishek:$$2y$$10$$op5eqXNINSeXfpDh1ghnSuqjdNXEn9MGvCkRsKZdNjZPbB4MfkZlO
-      - traefik.http.routers.http-catchall.entrypoints=http
-      - traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)
-      - traefik.http.routers.http-catchall.middlewares=redirect-to-https
+      - traefik.http.routers.traefik-http-catchall.entrypoints=http
+      - traefik.http.routers.traefik-http-catchall.rule=HostRegexp(`{host:.+}`)
+      - traefik.http.routers.traefik-http-catchall.middlewares=redirect-to-https
       - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
       - traefik.http.routers.traefik.service=api@internal
     restart: unless-stopped
@@ -46,6 +46,7 @@ services:
   jellyfin:
     image: jellyfin/jellyfin
     container_name: jellyfin
+    user: 1000:1000
     volumes:
       - ./jellyfin/config:/config
       - ./jellyfin/cache:/cache
@@ -60,4 +61,88 @@ services:
       - traefik.http.routers.jellyfin-http-catchall.rule=HostRegexp(`{host:.+}`)
       - traefik.http.routers.jellyfin-http-catchall.middlewares=redirect-to-https
       - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.services.jellyfin.loadbalancer.server.port=8096
+    restart: unless-stopped
+
+  qbittorrent:
+    image: linuxserver/qbittorrent
+    container_name: qbittorrent
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Kolkata
+      - UMASK_SET=022
+      - WEBUI_PORT=8080
+    volumes:
+      - ./qbittorrent/config:/config
+      - ./qbittorrent/downloads:/downloads
+    ports:
+      - 6881:6881
+      - 6881:6881/udp
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.qbittorrent.entrypoints=https
+      - traefik.http.routers.qbittorrent.rule=Host(`qbittorrent.haven.cumulo.dev`)
+      - traefik.http.routers.qbittorrent.tls=true
+      - traefik.http.routers.qbittorrent.tls.certresolver=letsencrypt
+      - traefik.http.routers.qbittorrent-http-catchall.entrypoints=http
+      - traefik.http.routers.qbittorrent-http-catchall.rule=HostRegexp(`{host:.+}`)
+      - traefik.http.routers.qbittorrent-http-catchall.middlewares=redirect-to-https
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.services.qbittorrent.loadbalancer.server.port=8080
+    restart: unless-stopped
+
+  nextcloud_db:
+    image: mariadb
+    container_name: nextcloud_db
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+    volumes:
+      - ./nextcloud/mysql:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_PASSWORD=nextcloud
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+    restart: unless-stopped
+
+  nextcloud_app:
+    image: nextcloud
+    container_name: nextcloud_app
+    links:
+      - nextcloud_db
+    volumes:
+      - ./nextcloud/app:/var/www/html
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.nextcloud.entrypoints=https
+      - traefik.http.routers.nextcloud.rule=Host(`nextcloud.haven.cumulo.dev`)
+      - traefik.http.routers.nextcloud.tls=true
+      - traefik.http.routers.nextcloud.tls.certresolver=letsencrypt
+      - traefik.http.routers.nextcloud-http-catchall.entrypoints=http
+      - traefik.http.routers.nextcloud-http-catchall.rule=HostRegexp(`{host:.+}`)
+      - traefik.http.routers.nextcloud-http-catchall.middlewares=redirect-to-https
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.services.nextcloud.loadbalancer.server.port=80
+    restart: unless-stopped
+
+  heimdall:
+    image: linuxserver/heimdall
+    container_name: heimdall
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Kolkata
+    volumes:
+      - ./heimdall/config:/config
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.heimdall.entrypoints=https
+      - traefik.http.routers.heimdall.rule=Host(`haven.cumulo.dev`)
+      - traefik.http.routers.heimdall.tls=true
+      - traefik.http.routers.heimdall.tls.certresolver=letsencrypt
+      - traefik.http.routers.heimdall-http-catchall.entrypoints=http
+      - traefik.http.routers.heimdall-http-catchall.rule=HostRegexp(`{host:.+}`)
+      - traefik.http.routers.heimdall-http-catchall.middlewares=redirect-to-https
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.services.heimdall.loadbalancer.server.port=80
     restart: unless-stopped
