@@ -287,6 +287,29 @@ services:
       - traefik.http.services.portainer.loadbalancer.server.port=9000
     restart: unless-stopped
 
+  pyload:
+    image: linuxserver/pyload
+    container_name: pyload
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Kolkata
+    volumes:
+      - ./pyload/config:/config
+      - ./pyload/downloads:/downloads
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.pyload.entrypoints=https
+      - traefik.http.routers.pyload.rule=Host(`pyload.haven.cumulo.dev`)
+      - traefik.http.routers.pyload.tls=true
+      - traefik.http.routers.pyload.tls.certresolver=letsencrypt
+      - traefik.http.routers.pyload-http-catchall.entrypoints=http
+      - traefik.http.routers.pyload-http-catchall.rule=HostRegexp(`{host:.+}`)
+      - traefik.http.routers.pyload-http-catchall.middlewares=redirect-to-https
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.services.pyload.loadbalancer.server.port=8000
+    restart: unless-stopped
+
 volumes:
   netdatalib:
   netdatacache:
