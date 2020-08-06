@@ -310,6 +310,39 @@ services:
       - traefik.http.services.pyload.loadbalancer.server.port=8000
     restart: unless-stopped
 
+  magnetissimo_db:
+    image: postgres
+    container_name: magnetissimo_db
+    environment:
+      POSTGRES_USER: torrent
+      POSTGRES_PASSWORD: torrent
+    volumes:
+      - ./magnetissimo/db:/var/lib/postgresql/data:rw
+    restart: unless-stopped
+
+  magnetissimo_app:
+    image: caskd/magnetissimo-docker:latest
+    container_name: magnetissimo_app
+    environment:
+      MIX_ENV: prod
+      DB_HOST: magnetissimo_db
+      DB_PORT: 5432
+      MAG_DATABASE: torrent
+      MAG_USERNAME: torrent
+      MAG_PASSWORD: torrent
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.magnetissimo.entrypoints=https
+      - traefik.http.routers.magnetissimo.rule=Host(`magnetissimo.haven.cumulo.dev`)
+      - traefik.http.routers.magnetissimo.tls=true
+      - traefik.http.routers.magnetissimo.tls.certresolver=letsencrypt
+      - traefik.http.routers.magnetissimo-http-catchall.entrypoints=http
+      - traefik.http.routers.magnetissimo-http-catchall.rule=HostRegexp(`{host:.+}`)
+      - traefik.http.routers.magnetissimo-http-catchall.middlewares=redirect-to-https
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.services.magnetissimo.loadbalancer.server.port=4000
+    restart: unless-stopped
+
 volumes:
   netdatalib:
   netdatacache:
